@@ -1,1 +1,0 @@
-This is a simple sinatra Content Management System (CMS) application.
