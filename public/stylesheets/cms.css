@@ -15,3 +15,7 @@ header .success {
 header .error {
     background-color: #f005;
 }
+
+form.inline {
+    display: inline;
+}

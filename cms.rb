@@ -55,7 +55,7 @@ post '/create' do
     erb :new, layout: :layout
   else
     File.write(File.join(data_path, name), '')
-    session[:success] = "#{name} was created."
+    session[:success] = "#{name} has been created."
     redirect '/'
   end
 end
@@ -78,5 +78,11 @@ end
 post '/:filename' do |filename|
   File.write(File.join(data_path, filename), params[:content])
   session[:success] = "#{filename} has been updated."
+  redirect '/'
+end
+
+post '/:filename/delete' do |filename|
+  File.delete(File.join(data_path, filename))
+  session[:success] = "#{filename} has been deleted."
   redirect '/'
 end

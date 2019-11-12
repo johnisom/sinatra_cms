@@ -152,7 +152,7 @@ A dynamic, open source programming language with a focus on
 
     assert_equal 200, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
-    assert_includes last_response.body, 'just_a_test.txt was created.'
+    assert_includes last_response.body, 'just_a_test.txt has been created.'
     assert_includes last_response.body, '<a href="/just_a_test.txt">just_a_test.txt'
     assert_includes last_response.body, '<a href="/just_a_test.txt/edit">edit</a>'
   end
@@ -167,5 +167,20 @@ A dynamic, open source programming language with a focus on
 
     assert_equal 422, last_response.status
     assert_includes last_response.body, 'A proper filename is required.'
+  end
+
+  def test_file_deletion
+    create_document 'hello.txt', 'hello world'
+
+    post '/hello.txt/delete'
+
+    assert_equal 302, last_response.status
+
+    get last_response['Location']
+
+    assert_equal 200, last_response.status
+    assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
+    assert_includes last_response.body, 'hello.txt has been deleted.'
+    refute_includes last_response.body, '<a href="/hello.txt">hello.txt</a>'
   end
 end
