@@ -6,7 +6,16 @@
   </head>
 
   <body>
-    <%= yield %>
+    <header>
+      <% if session[:error] %>
+      <div class="flash error">
+	<%= session.delete(:error) %>
+      </div>
+      <% end %>
+    </header>
+    <main>
+      <%= yield %>
+    </main>
   </body>
 
 </html>
