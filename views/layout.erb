@@ -7,9 +7,9 @@
 
   <body>
     <header>
-      <% if session[:error] %>
-      <div class="flash error">
-	<%= session.delete(:error) %>
+      <% if session[:flash] %>
+      <div class="flash">
+	<%= session.delete(:flash) %>
       </div>
       <% end %>
     </header>

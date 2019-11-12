@@ -35,7 +35,18 @@ get '/:filename' do |filename|
   if File.file?(path)
     file_content(path)
   else
-    session[:error] = "#{filename} does not exist."
+    session[:flash] = "#{filename} does not exist."
     redirect '/'
   end
+end
+
+get '/:filename/edit' do |filename|
+  @content = File.read("#{root}/data/#{filename}")
+  erb :edit, layout: :layout
+end
+
+post '/:filename' do |filename|
+  File.write("#{root}/data/#{filename}", params[:content])
+  session[:flash] = "#{filename} has been updated."
+  redirect '/'
 end
