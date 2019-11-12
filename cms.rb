@@ -27,7 +27,7 @@ def file_content(path)
   case File.extname(path)
   when '.md', '.markdown'
     headers['Content-Type'] = 'text/html;charset=utf-8'
-    markdown(content)
+    erb markdown(content), layout: :layout
   when '.txt'
     headers['Content-Type'] = 'text/plain'
     content
