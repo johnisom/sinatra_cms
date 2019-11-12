@@ -3,8 +3,17 @@ require 'sinatra/reloader'
 require 'tilt/erubis'
 require 'redcarpet'
 
-root = File.expand_path('..', __FILE__)
-markdown = Redcarpet::Markdown.new(Redcarpet::Render::HTML)
+def data_path
+  if ENV['RACK_ENV'] == 'test'
+    File.expand_path('../test/data', __FILE__)
+  else
+    File.expand_path('../data', __FILE__)
+  end
+end
+
+def markdown(text)
+  Redcarpet::Markdown.new(Redcarpet::Render::HTML).render(text)
+end
 
 configure do
   enable :sessions
@@ -26,12 +35,13 @@ def file_content(path)
 end
 
 get '/' do
-  @filenames = Dir['./data/*'].map { |path| File.basename(path) }
+  pattern = File.join(data_path, '*')
+  @filenames = Dir[pattern].map { |path| File.basename(path) }
   erb :index, layout: :layout
 end
 
 get '/:filename' do |filename|
-  path = "#{root}/data/#{filename}"
+  path = "#{data_path}/#{filename}"
   if File.file?(path)
     file_content(path)
   else
@@ -41,12 +51,12 @@ get '/:filename' do |filename|
 end
 
 get '/:filename/edit' do |filename|
-  @content = File.read("#{root}/data/#{filename}")
+  @content = File.read(File.join(data_path, filename))
   erb :edit, layout: :layout
 end
 
 post '/:filename' do |filename|
-  File.write("#{root}/data/#{filename}", params[:content])
+  File.write(File.join(data_path, filename), params[:content])
   session[:flash] = "#{filename} has been updated."
   redirect '/'
 end
