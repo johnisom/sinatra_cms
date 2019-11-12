@@ -10,9 +10,14 @@
 
   <body>
     <header>
-      <% if session[:flash] %>
-      <div class="flash">
-	<%= session.delete(:flash) %>
+      <% if session[:success] %>
+      <div class="flash success">
+	<%= session.delete(:success) %>
+      </div>
+      <% end %>
+      <% if session[:error] %>
+      <div class="flash error">
+	<%= session.delete(:error) %>
       </div>
       <% end %>
     </header>

@@ -27,8 +27,11 @@ def file_content(path)
   case File.extname(path)
   when '.md', '.markdown'
     headers['Content-Type'] = 'text/html;charset=utf-8'
-    erb markdown(content), layout: :layout
+    erb markdown(content), layout: false
   when '.txt'
+    headers['Content-Type'] = 'text/plain'
+    content
+  else
     headers['Content-Type'] = 'text/plain'
     content
   end
@@ -40,12 +43,29 @@ get '/' do
   erb :index, layout: :layout
 end
 
+get '/new' do
+  erb :new, layout: :layout
+end
+
+post '/create' do
+  name = params[:name].strip
+  unless name =~ /\A\w+\.\w+\z/
+    session[:error] = 'A name with extension is required.'
+    status 422
+    erb :new, layout: :layout
+  else
+    File.write(File.join(data_path, name), '')
+    session[:success] = "#{name} was created."
+    redirect '/'
+  end
+end
+
 get '/:filename' do |filename|
   path = "#{data_path}/#{filename}"
   if File.file?(path)
     file_content(path)
   else
-    session[:flash] = "#{filename} does not exist."
+    session[:error] = "#{filename} does not exist."
     redirect '/'
   end
 end
@@ -57,6 +77,6 @@ end
 
 post '/:filename' do |filename|
   File.write(File.join(data_path, filename), params[:content])
-  session[:flash] = "#{filename} has been updated."
+  session[:success] = "#{filename} has been updated."
   redirect '/'
 end

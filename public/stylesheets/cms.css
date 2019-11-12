@@ -4,6 +4,14 @@ body {
 }
 
 header .flash {
-    background-color: #ff05;
     padding: 10px;
+    margin-bottom: 5px;
+}
+
+header .success {
+    background-color: #0f05;
+}
+
+header .error {
+    background-color: #f005;
 }

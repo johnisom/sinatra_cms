@@ -133,4 +133,27 @@ A dynamic, open source programming language with a focus on
     assert_equal 'new content', last_response.body
     refute_equal 'old content', last_response.body
   end
+
+  def test_new_form
+    get '/new'
+
+    assert_equal 200, last_response.status
+    assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
+    assert_includes last_response.body, 'Add a new document:'
+    assert_includes last_response.body, '<form action="/create"'
+  end
+
+  def test_file_created
+    post '/create', name: 'just_a_test.txt'
+
+    assert_equal 302, last_response.status
+
+    get last_response['Location']
+
+    assert_equal 200, last_response.status
+    assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
+    assert_includes last_response.body, 'just_a_test.txt was created.'
+    assert_includes last_response.body, '<a href="/just_a_test.txt">just_a_test.txt'
+    assert_includes last_response.body, '<a href="/just_a_test.txt/edit">edit</a>'
+  end
 end
