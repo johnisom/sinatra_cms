@@ -156,4 +156,16 @@ A dynamic, open source programming language with a focus on
     assert_includes last_response.body, '<a href="/just_a_test.txt">just_a_test.txt'
     assert_includes last_response.body, '<a href="/just_a_test.txt/edit">edit</a>'
   end
+
+  def test_bad_filename_creation
+    post '/create', name: ' '
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, 'A proper filename is required.'
+
+    post '/create', name: 'file-without-extension'
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, 'A proper filename is required.'
+  end
 end

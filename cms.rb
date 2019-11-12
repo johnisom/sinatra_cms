@@ -49,8 +49,8 @@ end
 
 post '/create' do
   name = params[:name].strip
-  unless name =~ /\A\w+\.\w+\z/
-    session[:error] = 'A name with extension is required.'
+  unless name =~ /\A[ \w\-]+\.[ \w\-]+\z/
+    session[:error] = 'A proper filename is required.'
     status 422
     erb :new, layout: :layout
   else
