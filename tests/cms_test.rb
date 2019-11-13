@@ -38,7 +38,7 @@ class CMSTest < Minitest::Test
 
   def invalid_extension_message
     joined_extensions = ACCEPTABLE_EXTENSIONS.join(', ')
-    "File extension must be one of: #{joined_extensions}"
+    "File extension must be one of: #{joined_extensions}."
   end
 
   def test_about_md
@@ -195,8 +195,32 @@ A dynamic, open source programming language with a focus on
     assert_includes last_response.body, '<a href="/just_a_test.txt/edit">edit</a>'
   end
 
+  def test_file_duplication_form
+    get '/history.txt/duplicate'
+
+    assert_equal 302, last_response.status
+    assert_equal 'You must be signed in to do that.', session[:error]
+
+    get '/history.txt/duplicate', {}, admin_session
+
+    assert_equal 200, last_response.status
+    assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
+    assert_includes last_response.body, '<form'
+    assert_includes last_response.body, 'Enter name for duplicated history.txt:'
+    assert_includes last_response.body, '<button>Create</button>'
+    assert_includes last_response.body, 'action="/history.txt/duplicate" method="POST"'
+  end
+
+  def test_file_duplication_not_unique_filename
+    post '/create', { name: 'hello.txt' }, admin_session
+    post '/hello.txt/duplicate', name: 'hello.txt'
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, 'Filename must be unique.'
+  end
+
   def test_bad_filename_extension
-    post '/create', name: 'hello.yaml'
+    post '/create', name: 'hello.txt'
 
     assert_equal 302, last_response.status
     assert_equal 'You must be signed in to do that.', session[:error]

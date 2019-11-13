@@ -64,6 +64,12 @@ def check_authorization
   redirect '/'
 end
 
+# List of all filenames in CMS
+def filenames
+   pattern = File.join(data_path, '*')
+   Dir[pattern].map { |path| File.basename(path) }
+end
+
 # Generates error for filename or nil if no error
 def error_for_filename(name)
   extname = File.extname(name)
@@ -71,15 +77,16 @@ def error_for_filename(name)
     'A proper filename is required.'
   elsif ACCEPTABLE_EXTENSIONS.none? { |ext| ext == extname }
     joined_extensions = ACCEPTABLE_EXTENSIONS.join(', ')
-    "File extension must be one of: #{joined_extensions}"
+    "File extension must be one of: #{joined_extensions}."
+  elsif filenames.any? { |filename| filename == name }
+    'Filename must be unique.'
   end
 end
 
 # Main page. Loads either list of files + extras or
 # Sign in button if user is not authorized
 get '/' do
-  pattern = File.join(data_path, '*')
-  @filenames = Dir[pattern].map { |path| File.basename(path) }
+  @filenames = filenames
   erb :index, layout: :layout
 end
 
@@ -170,4 +177,27 @@ post '/:filename/delete' do |filename|
   File.delete(File.join(data_path, filename))
   session[:success] = "#{filename} has been deleted."
   redirect '/'
+end
+
+# Renders form for duplicating file
+get '/:filename/duplicate' do |filename|
+  check_authorization
+
+  erb :duplicate, layout: :layout
+end
+
+# Handles file duplication
+post '/:filename/duplicate' do |filename|
+  check_authorization
+
+  if (error = error_for_filename(params[:name]))
+    session[:error] = error
+    status 422
+    erb :duplicate, layout: :layout
+  else
+    content = File.read(File.join(data_path, filename))
+    File.write(File.join(data_path, params[:name]), content)
+    session[:success] = "#{filename} has been duplicated into #{params[:name]}"
+    redirect '/'
+  end
 end
