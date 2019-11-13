@@ -21,7 +21,11 @@
   </p>
 </form>
 <% else %>
-<form class="user-status" action="/users/signin">
+<form class="user-status inline" action="/users/signin">
   <button>Sign In</button>
+</form>
+
+<form class="user-status inline" action="/users/signup">
+  <button>Sign Up</button>
 </form>
 <% end %>
