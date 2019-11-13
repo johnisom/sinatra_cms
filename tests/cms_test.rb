@@ -33,6 +33,10 @@ class CMSTest < Minitest::Test
     File.write(File.join(data_path, name), content)
   end
 
+  def session
+    last_request.env['rack.session']
+  end
+
   def test_about_md
     body = <<-BODY
 <h1>Ruby is..</h1>
@@ -85,13 +89,14 @@ So far, no changes are on here.
     get '/nonexistent.file'
     assert_equal 302, last_response.status
 
+    assert_equal session[:error], 'nonexistent.file does not exist.'
+    
     get last_response['Location']
     assert_equal 200, last_response.status
-    assert_includes last_response.body, 'nonexistent.file does not exist.'
+    refute_equal session[:error], 'nonexistent.file does not exist.'
 
     get '/'
     assert_equal 200, last_response.status
-    refute_includes last_response.body, 'nonexistent.file does not exist.'
   end
 
   def test_about_edit
@@ -126,11 +131,11 @@ A dynamic, open source programming language with a focus on
     
     post '/test.txt', content: 'new content'
     assert_equal 302, last_response.status
+    assert_equal session[:success], 'test.txt has been updated.'
 
     get last_response['Location']
     assert_equal 200, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
-    assert_includes last_response.body, 'test.txt has been updated'
 
     get '/test.txt'
     assert_equal 200, last_response.status
@@ -152,12 +157,12 @@ A dynamic, open source programming language with a focus on
     post '/create', name: 'just_a_test.txt'
 
     assert_equal 302, last_response.status
+    assert_equal session[:success], 'just_a_test.txt has been created.'
 
     get last_response['Location']
 
     assert_equal 200, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
-    assert_includes last_response.body, 'just_a_test.txt has been created.'
     assert_includes last_response.body, '<a href="/just_a_test.txt">just_a_test.txt'
     assert_includes last_response.body, '<a href="/just_a_test.txt/edit">edit</a>'
   end
@@ -180,12 +185,12 @@ A dynamic, open source programming language with a focus on
     post '/hello.txt/delete'
 
     assert_equal 302, last_response.status
+    assert_equal session[:success], 'hello.txt has been deleted.'
 
     get last_response['Location']
-
+    
     assert_equal 200, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
-    assert_includes last_response.body, 'hello.txt has been deleted.'
     refute_includes last_response.body, '<a href="/hello.txt">hello.txt</a>'
   end
 
@@ -193,12 +198,12 @@ A dynamic, open source programming language with a focus on
     post '/users/signout'
 
     assert_equal 302, last_response.status
+    assert_equal session[:success], 'You have been signed out.'
 
     get last_response['Location']
 
     assert_equal 200, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
-    assert_includes last_response.body, 'You have been signed out.'
     assert_includes last_response.body, '<button>Sign In</button>'
   end
 
@@ -207,7 +212,7 @@ A dynamic, open source programming language with a focus on
 
     assert_equal 422, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
-    assert_includes last_response.body, 'Invalid credentials'
+    assert_includes last_response.body, 'Invalid credentials. Please try again.'
     assert_includes last_response.body, 'Username:'
   end
 
@@ -217,12 +222,12 @@ A dynamic, open source programming language with a focus on
     post '/users/signin', uname: 'admin', psswd: 'secret'
 
     assert_equal 302, last_response.status
+    assert_equal session[:success], 'Welcome!'
 
     get last_response['Location']
 
     assert_equal 200, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
-    assert_includes last_response.body, 'Welcome!'
     assert_includes last_response.body, 'Signed in as'
     assert_includes last_response.body, 'New Document'
   end
