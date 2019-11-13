@@ -122,12 +122,12 @@ A dynamic, open source programming language with a focus on
   def test_general_edit
     create_document 'test.txt'
 
-    get "/test.txt/edit"
+    get '/test.txt/edit'
 
     assert_equal 302, last_response.status
     assert_equal 'You must be signed in to do that.', session[:error]
 
-    get "/test.txt/edit", {}, admin_session
+    get '/test.txt/edit', {}, admin_session
 
     assert_equal 200, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']

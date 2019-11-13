@@ -3,6 +3,7 @@ require 'sinatra/reloader'
 require 'tilt/erubis'
 require 'redcarpet'
 require 'yaml'
+require 'bcrypt'
 
 # Gives path for data depending on if its
 # in testing or production
@@ -26,7 +27,7 @@ configure do
 end
 
 # Loads header for content type and returns correctly
-# formatted file content
+# formatted file contentn
 def file_content(path)
   content = File.read(path)
   case File.extname(path)
@@ -46,7 +47,8 @@ end
 def valid_user?(username, password)
   credentials_path = File.expand_path('../users.yml', data_path)
   credentials = Psych.load_file(credentials_path)['authorized']
-  credentials.key?(username) && credentials[username] == password
+  credentials.key?(username) &&
+    BCrypt::Password.new(credentials[username]) == password
 end
 
 # Check if user is authorized
@@ -57,10 +59,10 @@ end
 # Make sure user is authorized and redirect
 # if not
 def check_authorization
-  unless authorized?
-    session[:error] = 'You must be signed in to do that.'
-    redirect '/'
-  end
+  return if authorized?
+
+  session[:error] = 'You must be signed in to do that.'
+  redirect '/'
 end
 
 # Main page. Loads either list of files + extras or
@@ -111,14 +113,14 @@ post '/create' do
   check_authorization
 
   name = params[:name].strip
-  unless name =~ /\A[\s\w\-]+\.[\s\w\-]+\z/
-    session[:error] = 'A proper filename is required.'
-    status 422
-    erb :new, layout: :layout
-  else
+  if name =~ /\A[\s\w\-]+\.[\s\w\-]+\z/
     File.write(File.join(data_path, name), '')
     session[:success] = "#{name} has been created."
     redirect '/'
+  else
+    session[:error] = 'A proper filename is required.'
+    status 422
+    erb :new, layout: :layout
   end
 end
 
