@@ -5,7 +5,7 @@ require 'redcarpet'
 require 'yaml'
 require 'bcrypt'
 
-ACCEPTABLE_EXTENSIONS = %w[.txt .md].freeze
+ACCEPTABLE_EXTENSIONS = %w[.txt .md .jpg .jpeg .png].freeze
 
 # Gives path for data depending on if its
 # in testing or production
@@ -22,6 +22,11 @@ def markdown(text)
   Redcarpet::Markdown.new(Redcarpet::Render::HTML).render(text)
 end
 
+# Tests if extension is image
+def image?(filename)
+  %w[.jpg .jpeg .png].include? File.extname(filename)
+end
+
 # Allow us to use flash messages and login
 configure do
   enable :sessions
@@ -32,12 +37,18 @@ end
 # formatted file contentn
 def file_content(path)
   content = File.read(path)
-  case File.extname(path)
+  case File.extname(path).downcase
   when '.md'
     headers['Content-Type'] = 'text/html;charset=utf-8'
     erb markdown(content), layout: :layout
   when '.txt'
     headers['Content-Type'] = 'text/plain'
+    content
+  when '.jpg', '.jpeg'
+    headers['Content-Type'] = 'image/jpeg'
+    content
+  when '.png'
+    headers['Content-Type'] = 'image/png'
     content
   end
 end
@@ -101,6 +112,15 @@ def error_for_credentials(username, password)
     "Sorry, #{username} is already taken."
   elsif !(8..16).cover? password.size
     'Password must be between 8 and 16 characters.'
+  end
+end
+
+# Generates error for image filename or nil if no error
+def error_for_image(name, type)
+  if !%w[image/jpeg image/png].include? type
+    "File must be one of: #{IMAGE_EXTENSIONS.join(', ')}"
+  elsif (error = error_for_filename(name))
+    error
   end
 end
 
@@ -215,6 +235,11 @@ end
 get '/:filename/edit' do |filename|
   check_authorization
 
+  if image?(filename)
+    session[:error] = 'Cannot edit image file.'
+    redirect '/'
+  end
+
   @content = File.read(File.join(data_path, filename))
   erb :edit, layout: :layout
 end
@@ -256,6 +281,22 @@ post '/:filename/duplicate' do |filename|
     content = File.read(File.join(data_path, filename))
     File.write(File.join(data_path, params[:name]), content)
     session[:success] = "#{filename} has been duplicated into #{params[:name]}"
+    redirect '/'
+  end
+end
+
+# Handles image uploading
+post '/upload/image' do
+  check_authorization
+
+  name = params[:file_upload][:filename]
+  content = params[:file_upload][:tempfile]
+  if (error = error_for_image(name, params[:file_upload][:type]))
+    session[:error] = error
+    redirect '/new'
+  else
+    File.write(File.join(data_path, name), content.read)
+    session[:success] = 'Image successfully uploaded.'
     redirect '/'
   end
 end
