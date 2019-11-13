@@ -18,15 +18,10 @@ class CMSTest < Minitest::Test
 
   def setup
     FileUtils.mkdir_p(data_path)
-    post '/users/signin', uname: 'admin', psswd: 'secret'
   end
 
   def teardown
     FileUtils.rm_rf(data_path)
-  end
-
-  def signout
-    post '/users/signout'
   end
 
   def create_document(name, content = '')
@@ -89,11 +84,11 @@ So far, no changes are on here.
     get '/nonexistent.file'
     assert_equal 302, last_response.status
 
-    assert_equal session[:error], 'nonexistent.file does not exist.'
+    assert_equal 'nonexistent.file does not exist.', session[:error]
     
     get last_response['Location']
     assert_equal 200, last_response.status
-    refute_equal session[:error], 'nonexistent.file does not exist.'
+    refute_equal 'nonexistent.file does not exist.', session[:error]
 
     get '/'
     assert_equal 200, last_response.status
@@ -131,7 +126,7 @@ A dynamic, open source programming language with a focus on
     
     post '/test.txt', content: 'new content'
     assert_equal 302, last_response.status
-    assert_equal session[:success], 'test.txt has been updated.'
+    assert_equal 'test.txt has been updated.', session[:success]
 
     get last_response['Location']
     assert_equal 200, last_response.status
@@ -157,7 +152,7 @@ A dynamic, open source programming language with a focus on
     post '/create', name: 'just_a_test.txt'
 
     assert_equal 302, last_response.status
-    assert_equal session[:success], 'just_a_test.txt has been created.'
+    assert_equal 'just_a_test.txt has been created.', session[:success]
 
     get last_response['Location']
 
@@ -185,7 +180,7 @@ A dynamic, open source programming language with a focus on
     post '/hello.txt/delete'
 
     assert_equal 302, last_response.status
-    assert_equal session[:success], 'hello.txt has been deleted.'
+    assert_equal 'hello.txt has been deleted.', session[:success]
 
     get last_response['Location']
     
@@ -195,10 +190,12 @@ A dynamic, open source programming language with a focus on
   end
 
   def test_signout
+    get '/', {}, { 'rack.session' => { uname: 'admin' } }
+
     post '/users/signout'
 
     assert_equal 302, last_response.status
-    assert_equal session[:success], 'You have been signed out.'
+    assert_equal 'You have been signed out.', session[:success]
 
     get last_response['Location']
 
@@ -214,15 +211,15 @@ A dynamic, open source programming language with a focus on
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
     assert_includes last_response.body, 'Invalid credentials. Please try again.'
     assert_includes last_response.body, 'Username:'
+    assert_nil session[:uname]
   end
 
   def test_signin
-    signout
-    
     post '/users/signin', uname: 'admin', psswd: 'secret'
 
     assert_equal 302, last_response.status
     assert_equal session[:success], 'Welcome!'
+    assert_equal session[:uname], 'admin'
 
     get last_response['Location']
 
