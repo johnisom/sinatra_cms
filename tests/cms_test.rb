@@ -32,6 +32,10 @@ class CMSTest < Minitest::Test
     last_request.env['rack.session']
   end
 
+  def admin_session
+    { 'rack.session' => { uname: 'admin' } }
+  end
+
   def test_about_md
     body = <<-BODY
 <h1>Ruby is..</h1>
@@ -48,7 +52,7 @@ productivity. It has an elegant syntax that is natural to read and easy to write
     CONTENT
 
     create_document 'about.md', content
-    
+
     get '/about.md'
     assert_equal 200, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
@@ -61,7 +65,7 @@ So far, no changes are on here.
     BODY
 
     create_document 'changes.txt', body
-    
+
     get '/changes.txt'
     assert_equal 200, last_response.status
     assert_equal 'text/plain', last_response['Content-Type']
@@ -71,9 +75,9 @@ So far, no changes are on here.
   def test_index
     create_document 'about.md'
     create_document 'changes.txt'
-    
+
     get '/'
-    
+
     assert_equal 200, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
     assert_includes last_response.body, 'about.md'
@@ -85,7 +89,7 @@ So far, no changes are on here.
     assert_equal 302, last_response.status
 
     assert_equal 'nonexistent.file does not exist.', session[:error]
-    
+
     get last_response['Location']
     assert_equal 200, last_response.status
     refute_equal 'nonexistent.file does not exist.', session[:error]
@@ -102,8 +106,13 @@ A dynamic, open source programming language with a focus on
     BODY
 
     create_document 'about.md', body
-    
+
     get '/about.md/edit'
+
+    assert_equal 302, last_response.status
+    assert_equal 'You must be signed in to do that.', session[:error]
+
+    get '/about.md/edit', {}, admin_session
 
     assert_equal 200, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
@@ -115,6 +124,11 @@ A dynamic, open source programming language with a focus on
 
     get "/test.txt/edit"
 
+    assert_equal 302, last_response.status
+    assert_equal 'You must be signed in to do that.', session[:error]
+
+    get "/test.txt/edit", {}, admin_session
+
     assert_equal 200, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
     assert_includes last_response.body, '<p>Edit content of test.txt:</p>'
@@ -123,8 +137,12 @@ A dynamic, open source programming language with a focus on
 
   def test_update_general
     create_document 'test.txt', 'old content'
-    
+
     post '/test.txt', content: 'new content'
+    assert_equal 302, last_response.status
+    assert_equal 'You must be signed in to do that.', session[:error]
+
+    post '/test.txt', { content: 'new content' }, admin_session
     assert_equal 302, last_response.status
     assert_equal 'test.txt has been updated.', session[:success]
 
@@ -142,6 +160,11 @@ A dynamic, open source programming language with a focus on
   def test_new_form
     get '/new'
 
+    assert_equal 302, last_response.status
+    assert_equal 'You must be signed in to do that.', session[:error]
+
+    get '/new', {}, admin_session
+
     assert_equal 200, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
     assert_includes last_response.body, 'Add a new document:'
@@ -150,6 +173,11 @@ A dynamic, open source programming language with a focus on
 
   def test_file_created
     post '/create', name: 'just_a_test.txt'
+
+    assert_equal 302, last_response.status
+    assert_equal 'You must be signed in to do that.', session[:error]
+
+    post '/create', { name: 'just_a_test.txt' }, admin_session
 
     assert_equal 302, last_response.status
     assert_equal 'just_a_test.txt has been created.', session[:success]
@@ -164,6 +192,11 @@ A dynamic, open source programming language with a focus on
 
   def test_bad_filename_creation
     post '/create', name: ' '
+
+    assert_equal 302, last_response.status
+    assert_equal 'You must be signed in to do that.', session[:error]
+
+    post '/create', { name: ' ' }, admin_session
 
     assert_equal 422, last_response.status
     assert_includes last_response.body, 'A proper filename is required.'
@@ -180,17 +213,22 @@ A dynamic, open source programming language with a focus on
     post '/hello.txt/delete'
 
     assert_equal 302, last_response.status
+    assert_equal 'You must be signed in to do that.', session[:error]
+
+    post '/hello.txt/delete', {}, admin_session
+
+    assert_equal 302, last_response.status
     assert_equal 'hello.txt has been deleted.', session[:success]
 
     get last_response['Location']
-    
+
     assert_equal 200, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
     refute_includes last_response.body, '<a href="/hello.txt">hello.txt</a>'
   end
 
   def test_signout
-    get '/', {}, { 'rack.session' => { uname: 'admin' } }
+    get '/', {}, admin_session
 
     post '/users/signout'
 
@@ -229,7 +267,7 @@ A dynamic, open source programming language with a focus on
     assert_includes last_response.body, 'New Document'
   end
 
-  def test_signing_form
+  def test_signin_form
     get '/users/signin'
 
     assert_equal 200, last_response.status

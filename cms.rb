@@ -41,6 +41,21 @@ def file_content(path)
   end
 end
 
+
+# Check if user is authorized
+def authorized?
+  session.key?(:uname)
+end
+
+# Make sure user is authorized and redirect
+# if not
+def check_authorization
+  unless authorized?
+    session[:error] = 'You must be signed in to do that.'
+    redirect '/'
+  end
+end
+
 # Main page. Loads either list of files + extras or
 # Sign in button if user is not authorized
 get '/' do
@@ -78,12 +93,16 @@ end
 
 # Renders template form for creating new file
 get '/new' do
+  check_authorization
+
   erb :new, layout: :layout
 end
 
 # Handles submission of form rendered above
 # Creates file if valid filename
 post '/create' do
+  check_authorization
+
   name = params[:name].strip
   unless name =~ /\A[\s\w\-]+\.[\s\w\-]+\z/
     session[:error] = 'A proper filename is required.'
@@ -110,12 +129,16 @@ end
 # Displays form for editing files
 # Content is preloaded into the textarea
 get '/:filename/edit' do |filename|
+  check_authorization
+
   @content = File.read(File.join(data_path, filename))
   erb :edit, layout: :layout
 end
 
 # Updates the file with what is in form from above
 post '/:filename' do |filename|
+  check_authorization
+
   File.write(File.join(data_path, filename), params[:content])
   session[:success] = "#{filename} has been updated."
   redirect '/'
@@ -123,6 +146,8 @@ end
 
 # Deletes a file
 post '/:filename/delete' do |filename|
+  check_authorization
+
   File.delete(File.join(data_path, filename))
   session[:success] = "#{filename} has been deleted."
   redirect '/'
