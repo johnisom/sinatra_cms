@@ -18,10 +18,15 @@ class CMSTest < Minitest::Test
 
   def setup
     FileUtils.mkdir_p(data_path)
+    post '/users/signin', uname: 'admin', psswd: 'secret'
   end
 
   def teardown
     FileUtils.rm_rf(data_path)
+  end
+
+  def signout
+    post '/users/signout'
   end
 
   def create_document(name, content = '')
@@ -48,7 +53,7 @@ productivity. It has an elegant syntax that is natural to read and easy to write
     get '/about.md'
     assert_equal 200, last_response.status
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
-    assert_equal body, last_response.body
+    assert_includes last_response.body, body
   end
 
   def test_changes_txt
@@ -182,5 +187,53 @@ A dynamic, open source programming language with a focus on
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
     assert_includes last_response.body, 'hello.txt has been deleted.'
     refute_includes last_response.body, '<a href="/hello.txt">hello.txt</a>'
+  end
+
+  def test_signout
+    post '/users/signout'
+
+    assert_equal 302, last_response.status
+
+    get last_response['Location']
+
+    assert_equal 200, last_response.status
+    assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
+    assert_includes last_response.body, 'You have been signed out.'
+    assert_includes last_response.body, '<button>Sign In</button>'
+  end
+
+  def test_bad_signin_attempt
+    post '/users/signin', uname: 'invalid', psswd: 'also invalid'
+
+    assert_equal 422, last_response.status
+    assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
+    assert_includes last_response.body, 'Invalid credentials'
+    assert_includes last_response.body, 'Username:'
+  end
+
+  def test_signin
+    signout
+    
+    post '/users/signin', uname: 'admin', psswd: 'secret'
+
+    assert_equal 302, last_response.status
+
+    get last_response['Location']
+
+    assert_equal 200, last_response.status
+    assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
+    assert_includes last_response.body, 'Welcome!'
+    assert_includes last_response.body, 'Signed in as'
+    assert_includes last_response.body, 'New Document'
+  end
+
+  def test_signing_form
+    get '/users/signin'
+
+    assert_equal 200, last_response.status
+    assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
+    assert_includes last_response.body, '<button>Sign In</button>'
+    assert_includes last_response.body, '<form'
+    assert_includes last_response.body, 'Username: '
   end
 end

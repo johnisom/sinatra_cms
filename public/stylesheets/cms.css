@@ -19,3 +19,7 @@ header .error {
 form.inline {
     display: inline;
 }
+
+form.user-status,
+form.user-status button {
+    font-style: italic;
