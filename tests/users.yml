@@ -1,0 +1,6 @@
+---
+authorized:
+  admin: secret
+  user: pass
+  username: password
+...

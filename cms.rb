@@ -2,6 +2,7 @@ require 'sinatra'
 require 'sinatra/reloader'
 require 'tilt/erubis'
 require 'redcarpet'
+require 'yaml'
 
 # Gives path for data depending on if its
 # in testing or production
@@ -41,6 +42,12 @@ def file_content(path)
   end
 end
 
+# Check users.yaml config file for username and password match
+def valid_user?(username, password)
+  credentials_path = File.expand_path('../users.yml', data_path)
+  credentials = Psych.load_file(credentials_path)['authorized']
+  credentials.key?(username) && credentials[username] == password
+end
 
 # Check if user is authorized
 def authorized?
@@ -73,8 +80,8 @@ end
 post '/users/signin' do
   uname = params[:uname]
   psswd = params[:psswd]
-  if uname == 'admin' && psswd == 'secret'
-    session[:uname] = 'admin'
+  if valid_user?(uname, psswd)
+    session[:uname] = uname
     session[:success] = 'Welcome!'
     redirect '/'
   else
