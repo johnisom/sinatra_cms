@@ -5,6 +5,8 @@ require 'redcarpet'
 require 'yaml'
 require 'bcrypt'
 
+ACCEPTABLE_EXTENSIONS = %w[.txt .md]
+
 # Gives path for data depending on if its
 # in testing or production
 def data_path
@@ -31,13 +33,10 @@ end
 def file_content(path)
   content = File.read(path)
   case File.extname(path)
-  when '.md', '.markdown'
+  when '.md'
     headers['Content-Type'] = 'text/html;charset=utf-8'
     erb markdown(content), layout: :layout
   when '.txt'
-    headers['Content-Type'] = 'text/plain'
-    content
-  else
     headers['Content-Type'] = 'text/plain'
     content
   end
@@ -63,6 +62,17 @@ def check_authorization
 
   session[:error] = 'You must be signed in to do that.'
   redirect '/'
+end
+
+# Generates error for filename or nil if no error
+def error_for_filename(name)
+  extname = File.extname(name)
+  if !(name =~ /\A[\s\w\-]+\.[\s\w\-]+\z/)
+    'A proper filename is required.'
+  elsif ACCEPTABLE_EXTENSIONS.none? { |ext| ext == extname }
+    joined_extensions = ACCEPTABLE_EXTENSIONS.join(', ')
+    "File extension must be one of: #{joined_extensions}"
+  end
 end
 
 # Main page. Loads either list of files + extras or
@@ -111,16 +121,16 @@ end
 # Creates file if valid filename
 post '/create' do
   check_authorization
-
+  
   name = params[:name].strip
-  if name =~ /\A[\s\w\-]+\.[\s\w\-]+\z/
+  if (error = error_for_filename(name))
+    session[:error] = error
+    status 422
+    erb :new, layout: :layout
+  else
     File.write(File.join(data_path, name), '')
     session[:success] = "#{name} has been created."
     redirect '/'
-  else
-    session[:error] = 'A proper filename is required.'
-    status 422
-    erb :new, layout: :layout
   end
 end
 

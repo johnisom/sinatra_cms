@@ -36,6 +36,11 @@ class CMSTest < Minitest::Test
     { 'rack.session' => { uname: 'admin' } }
   end
 
+  def invalid_extension_message
+    joined_extensions = ACCEPTABLE_EXTENSIONS.join(', ')
+    "File extension must be one of: #{joined_extensions}"
+  end
+
   def test_about_md
     body = <<-BODY
 <h1>Ruby is..</h1>
@@ -188,6 +193,18 @@ A dynamic, open source programming language with a focus on
     assert_equal 'text/html;charset=utf-8', last_response['Content-Type']
     assert_includes last_response.body, '<a href="/just_a_test.txt">just_a_test.txt'
     assert_includes last_response.body, '<a href="/just_a_test.txt/edit">edit</a>'
+  end
+
+  def test_bad_filename_extension
+    post '/create', name: 'hello.yaml'
+
+    assert_equal 302, last_response.status
+    assert_equal 'You must be signed in to do that.', session[:error]
+
+    post '/create', { name: 'hello.yaml' }, admin_session
+
+    assert_equal 422, last_response.status
+    assert_includes last_response.body, invalid_extension_message
   end
 
   def test_bad_filename_creation
