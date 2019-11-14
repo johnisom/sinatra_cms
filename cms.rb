@@ -4,6 +4,7 @@ require 'tilt/erubis'
 require 'redcarpet'
 require 'yaml'
 require 'bcrypt'
+require 'fileutils'
 
 ACCEPTABLE_EXTENSIONS = %w[.txt .md .jpg .jpeg .png].freeze
 
@@ -15,6 +16,33 @@ def data_path
   else
     File.expand_path('../data', __FILE__)
   end
+end
+
+# Path where restores reside
+def restore_path
+  File.expand_path('../restores', data_path)
+end
+
+# Gets all the full paths of all the restores for filename
+def restores_for(filename)
+  path = File.join(restore_path, filename)
+  FileUtils.mkdir_p(path) unless File.directory?(path)
+  Dir[File.join(path, '*')]
+end
+
+# Restore file to version
+def restore(file, version)
+  path_for_restore = restores_for(file)[version[1..nil].to_i - 1]
+  content = File.read(path_for_restore)
+  File.write(File.join(data_path, file), content)
+end
+
+# Make restore point of file
+def make_restore_point(file, content)
+  basenames = restores_for(file).map { |path| File.basename(path).to_i }
+  version = (basenames.max || 0) + 1
+  path_for_restore = File.join(restore_path, file, version.to_s)
+  File.write(path_for_restore, content)
 end
 
 # Convert markdown to html
@@ -49,6 +77,9 @@ def file_content(path)
     content
   when '.png'
     headers['Content-Type'] = 'image/png'
+    content
+  else
+    headers['Content-Type'] = 'text/plain'
     content
   end
 end
@@ -213,6 +244,7 @@ post '/create' do
     status 422
     erb :new, layout: :layout
   else
+    make_restore_point(name, '')
     File.write(File.join(data_path, name), '')
     session[:success] = "#{name} has been created."
     redirect '/'
@@ -248,7 +280,14 @@ end
 post '/:filename' do |filename|
   check_authorization
 
-  File.write(File.join(data_path, filename), params[:content])
+  if image?(filename)
+    session[:error] = 'Cannot edit image file.'
+    redirect '/'
+  end
+
+  content = params[:content]
+  make_restore_point(filename, content)
+  File.write(File.join(data_path, filename), content)
   session[:success] = "#{filename} has been updated."
   redirect '/'
 end
@@ -279,6 +318,7 @@ post '/:filename/duplicate' do |filename|
     erb :duplicate, layout: :layout
   else
     content = File.read(File.join(data_path, filename))
+    make_restore_point(filename, content)
     File.write(File.join(data_path, params[:name]), content)
     session[:success] = "#{filename} has been duplicated into #{params[:name]}"
     redirect '/'
@@ -299,4 +339,41 @@ post '/upload/image' do
     session[:success] = 'Image successfully uploaded.'
     redirect '/'
   end
+end
+
+# Render the restore template that displays
+# all the different versions of that file on record
+get '/:filename/restores' do |filename|
+  if image?(filename)
+    session[:error] = 'Cannot restore image file.'
+    redirect '/'
+  end
+
+  @restore_count = restores_for(filename).size
+  erb :restores, layout: :layout
+end
+
+# Displays file to user of specific restore point
+get '/:filename/restores/:version' do |filename, version|
+  path = restores_for(filename)[version[1..nil].to_i - 1]
+  if File.file?(path)
+    file_content(path)
+  else
+    session[:error] = "#{filename} does not exist."
+    redirect '/'
+  end
+end
+
+# Restores file back to original point
+post '/:filename/restore/:version' do |filename, version|
+  check_authorization
+
+  if image?(filename)
+    session[:error] = 'Cannot restore image file.'
+    redirect '/'
+  end
+
+  restore(filename, version)
+  session[:success] = "#{filename} successfully restored to #{version}."
+  redirect '/'
 end
