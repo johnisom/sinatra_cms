@@ -3,5 +3,6 @@
 *#
 .#*
 \#*#
-orgs/*.org
+orgs/*
 data/*
+restores/*
