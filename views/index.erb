@@ -3,6 +3,8 @@
   <li>
     <a href="/<%= filename %>"><%= filename %></a>
     <a href="/<%= filename %>/edit">edit</a>
+    <a href="/<%= filename %>/duplicate">duplicate</a>
+    <a href="/<%= filename %>/restores">restore</a>
     <form class="inline" action="/<%= filename %>/delete" method="POST">
       <button>delete</button>
     </form>
@@ -20,7 +22,11 @@
   </p>
 </form>
 <% else %>
-<form class="user-status" action="/users/signin">
+<form class="user-status inline" action="/users/signin">
   <button>Sign In</button>
+</form>
+
+<form class="user-status inline" action="/users/signup">
+  <button>Sign Up</button>
 </form>
 <% end %>

@@ -1,0 +1,7 @@
+<h2>Please choose restoration version:</h2>
+<% @restore_count.times do |n| %>
+<form action="/<%= params[:filename] %>/restore/v<%= n + 1 %>" method="POST">
+  <button>Restore to v<%= n + 1 %></button>
+    <a href="/<%= params[:filename] %>/restores/v<%= n + 1 %>">View v<%= n + 1 %></a>
+</form>
+<% end %>

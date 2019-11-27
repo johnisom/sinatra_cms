@@ -1,0 +1,5 @@
+<form action="/<%= params[:filename] %>/duplicate" method="POST">
+  <label for="name">Enter name for duplicated <%= params[:filename] %>:</label><br>
+  <input type="text" id="name" name="name" placeholder="example.txt" value="<%= params[:name] %>" size="14">
+  <button>Create</button>
+</form>

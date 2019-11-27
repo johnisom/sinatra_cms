@@ -3,3 +3,9 @@
   <input type="text" id="name" name="name" placeholder="example.txt" value="<%= params[:name] %>" size="14">
   <input type="submit" value="Create">
 </form>
+<br>
+<form action="/upload/image" method="POST" enctype="multipart/form-data">
+  <label for="file_upload">Or, upload an image</label><br>
+  <input type="file" name="file_upload" id="file_upload" accept="image/png, image/jpeg"><br>
+  <input type="submit" value="Upload Image!">
+</form>

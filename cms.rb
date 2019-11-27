@@ -4,6 +4,9 @@ require 'tilt/erubis'
 require 'redcarpet'
 require 'yaml'
 require 'bcrypt'
+require 'fileutils'
+
+ACCEPTABLE_EXTENSIONS = %w[.txt .md .jpg .jpeg .png].freeze
 
 # Gives path for data depending on if its
 # in testing or production
@@ -15,9 +18,41 @@ def data_path
   end
 end
 
+# Path where restores reside
+def restore_path
+  File.expand_path('../restores', data_path)
+end
+
+# Gets all the full paths of all the restores for filename
+def restores_for(filename)
+  path = File.join(restore_path, filename)
+  FileUtils.mkdir_p(path) unless File.directory?(path)
+  Dir[File.join(path, '*')]
+end
+
+# Restore file to version
+def restore(file, version)
+  path_for_restore = restores_for(file)[version[1..nil].to_i - 1]
+  content = File.read(path_for_restore)
+  File.write(File.join(data_path, file), content)
+end
+
+# Make restore point of file
+def make_restore_point(file, content)
+  basenames = restores_for(file).map { |path| File.basename(path).to_i }
+  version = (basenames.max || 0) + 1
+  path_for_restore = File.join(restore_path, file, version.to_s)
+  File.write(path_for_restore, content)
+end
+
 # Convert markdown to html
 def markdown(text)
   Redcarpet::Markdown.new(Redcarpet::Render::HTML).render(text)
+end
+
+# Tests if extension is image
+def image?(filename)
+  %w[.jpg .jpeg .png].include? File.extname(filename)
 end
 
 # Allow us to use flash messages and login
@@ -30,12 +65,18 @@ end
 # formatted file contentn
 def file_content(path)
   content = File.read(path)
-  case File.extname(path)
-  when '.md', '.markdown'
+  case File.extname(path).downcase
+  when '.md'
     headers['Content-Type'] = 'text/html;charset=utf-8'
     erb markdown(content), layout: :layout
   when '.txt'
     headers['Content-Type'] = 'text/plain'
+    content
+  when '.jpg', '.jpeg'
+    headers['Content-Type'] = 'image/jpeg'
+    content
+  when '.png'
+    headers['Content-Type'] = 'image/png'
     content
   else
     headers['Content-Type'] = 'text/plain'
@@ -43,12 +84,20 @@ def file_content(path)
   end
 end
 
-# Check users.yaml config file for username and password match
+# Credentials from users.yml file
+def credentials
+  Psych.load_file(File.expand_path('../users.yml', data_path))
+end
+
+# Check credentials for username and password match
 def valid_user?(username, password)
-  credentials_path = File.expand_path('../users.yml', data_path)
-  credentials = Psych.load_file(credentials_path)['authorized']
   credentials.key?(username) &&
     BCrypt::Password.new(credentials[username]) == password
+end
+
+# List of all usernames
+def usernames
+  credentials.keys
 end
 
 # Check if user is authorized
@@ -65,21 +114,73 @@ def check_authorization
   redirect '/'
 end
 
+# List of all filenames in CMS
+def filenames
+  pattern = File.join(data_path, '*')
+  Dir[pattern].map { |path| File.basename(path) }
+end
+
+# Generates error for filename or nil if no error
+def error_for_filename(name)
+  extname = File.extname(name)
+  if !(name =~ /\A[\s\w\-]+\.[\s\w\-]+\z/)
+    'A proper filename is required.'
+  elsif !ACCEPTABLE_EXTENSIONS.include? extname
+    joined_extensions = ACCEPTABLE_EXTENSIONS.join(', ')
+    "File extension must be one of: #{joined_extensions}."
+  elsif filenames.include? name
+    'Filename must be unique.'
+  end
+end
+
+# Generates error for username or nil if no error
+def error_for_credentials(username, password)
+  if !(4..16).cover? username.size
+    'Username must be between 4 and 16 characters.'
+  elsif !(username =~ /\A\w+\z/)
+    'Usernameame must only alphanumeric characters.'
+  elsif usernames.include? username
+    "Sorry, #{username} is already taken."
+  elsif !(8..16).cover? password.size
+    'Password must be between 8 and 16 characters.'
+  end
+end
+
+# Generates error for image filename or nil if no error
+def error_for_image(name, type)
+  if !%w[image/jpeg image/png].include? type
+    "File must be one of: #{IMAGE_EXTENSIONS.join(', ')}"
+  elsif (error = error_for_filename(name))
+    error
+  end
+end
+
+# Adds user to users.yml
+def add_user(username, password)
+  File.open(File.expand_path('../users.yml', data_path), 'a') do |file|
+    encrypted_password = BCrypt::Password.create(password)
+    file.write("#{username}: #{encrypted_password}\n")
+  end
+end
+
 # Main page. Loads either list of files + extras or
 # Sign in button if user is not authorized
 get '/' do
-  pattern = File.join(data_path, '*')
-  @filenames = Dir[pattern].map { |path| File.basename(path) }
+  @filenames = filenames
   erb :index, layout: :layout
 end
 
 # Loads sign in form for users to get authorized
 get '/users/signin' do
+  redirect '/' if authorized?
+
   erb :signin, layout: :layout
 end
 
 # Authorizes user or asks user to try again
 post '/users/signin' do
+  redirect '/' if authorized?
+
   uname = params[:uname]
   psswd = params[:psswd]
   if valid_user?(uname, psswd)
@@ -100,6 +201,31 @@ post '/users/signout' do
   redirect '/'
 end
 
+# Renders signup form
+get '/users/signup' do
+  redirect '/' if authorized?
+
+  erb :signup, layout: :layout
+end
+
+# Creates new user
+post '/users/signup' do
+  redirect '/' if authorized?
+
+  uname = params[:uname].strip
+  psswd = params[:psswd].strip
+  if (error = error_for_credentials(uname, psswd))
+    session[:error] = error
+    status 422
+    erb :signup, layout: :layout
+  else
+    add_user(uname, psswd)
+    session[:uname] = uname
+    session[:success] = "Welcome to the CMS, #{uname}!"
+    redirect '/'
+  end
+end
+
 # Renders template form for creating new file
 get '/new' do
   check_authorization
@@ -113,14 +239,15 @@ post '/create' do
   check_authorization
 
   name = params[:name].strip
-  if name =~ /\A[\s\w\-]+\.[\s\w\-]+\z/
+  if (error = error_for_filename(name))
+    session[:error] = error
+    status 422
+    erb :new, layout: :layout
+  else
+    make_restore_point(name, '')
     File.write(File.join(data_path, name), '')
     session[:success] = "#{name} has been created."
     redirect '/'
-  else
-    session[:error] = 'A proper filename is required.'
-    status 422
-    erb :new, layout: :layout
   end
 end
 
@@ -140,6 +267,11 @@ end
 get '/:filename/edit' do |filename|
   check_authorization
 
+  if image?(filename)
+    session[:error] = 'Cannot edit image file.'
+    redirect '/'
+  end
+
   @content = File.read(File.join(data_path, filename))
   erb :edit, layout: :layout
 end
@@ -148,7 +280,14 @@ end
 post '/:filename' do |filename|
   check_authorization
 
-  File.write(File.join(data_path, filename), params[:content])
+  if image?(filename)
+    session[:error] = 'Cannot edit image file.'
+    redirect '/'
+  end
+
+  content = params[:content]
+  make_restore_point(filename, content)
+  File.write(File.join(data_path, filename), content)
   session[:success] = "#{filename} has been updated."
   redirect '/'
 end
@@ -159,5 +298,82 @@ post '/:filename/delete' do |filename|
 
   File.delete(File.join(data_path, filename))
   session[:success] = "#{filename} has been deleted."
+  redirect '/'
+end
+
+# Renders form for duplicating file
+get '/:filename/duplicate' do
+  check_authorization
+
+  erb :duplicate, layout: :layout
+end
+
+# Handles file duplication
+post '/:filename/duplicate' do |filename|
+  check_authorization
+
+  if (error = error_for_filename(params[:name]))
+    session[:error] = error
+    status 422
+    erb :duplicate, layout: :layout
+  else
+    content = File.read(File.join(data_path, filename))
+    make_restore_point(filename, content)
+    File.write(File.join(data_path, params[:name]), content)
+    session[:success] = "#{filename} has been duplicated into #{params[:name]}"
+    redirect '/'
+  end
+end
+
+# Handles image uploading
+post '/upload/image' do
+  check_authorization
+
+  name = params[:file_upload][:filename]
+  content = params[:file_upload][:tempfile]
+  if (error = error_for_image(name, params[:file_upload][:type]))
+    session[:error] = error
+    redirect '/new'
+  else
+    File.write(File.join(data_path, name), content.read)
+    session[:success] = 'Image successfully uploaded.'
+    redirect '/'
+  end
+end
+
+# Render the restore template that displays
+# all the different versions of that file on record
+get '/:filename/restores' do |filename|
+  if image?(filename)
+    session[:error] = 'Cannot restore image file.'
+    redirect '/'
+  end
+
+  @restore_count = restores_for(filename).size
+  erb :restores, layout: :layout
+end
+
+# Displays file to user of specific restore point
+get '/:filename/restores/:version' do |filename, version|
+  path = restores_for(filename)[version[1..nil].to_i - 1]
+  if File.file?(path)
+    file_content(path)
+  else
+    session[:error] = "#{filename} does not exist."
+    redirect '/'
+  end
+end
+
+# Restores file back to original point
+post '/:filename/restore/:version' do |filename, version|
+  check_authorization
+
+  if image?(filename)
+    session[:error] = 'Cannot restore image file.'
+    redirect '/'
+  end
+
+  restore(filename, version)
+  session[:success] = "#{filename} successfully restored to #{version}."
   redirect '/'
 end
