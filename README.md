@@ -42,4 +42,4 @@ Uploading an image and then duplicating it:
 
 - If you’re logged in as any user, you can edit and delete any file
 - No virus or malware checking
-- You can’t edit (includig restore) an image file
+- You can’t edit (including restore) an image file
