@@ -43,3 +43,12 @@ Uploading an image and then duplicating it:
 - If you’re logged in as any user, you can edit and delete any file
 - No virus or malware checking
 - You can’t edit (including restore) an image file
+
+## Installation ##
+
+1. Clone this repository (`git clone https://github.com/johnisom/sinatra_cms`)
+2. `cd` into the repository (`cd sinatra_cms`)
+3. Install dependencies (`bundle install`)
+   - If you don’t have ruby-2.6.5, install it
+4. Run the server locally (`bundle exec rackup)
+5. Enjoy your content management system at http://localhost:9292/
